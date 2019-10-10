@@ -1,6 +1,6 @@
 # Remote Codewind Without Che
 
-This repository provides directions for Codewind developers to deploy a working Codewind instance onto a K8s cluster, outside of an Eclipse Che workspace.
+This repository provides directions for Codewind developers to deploy a working Codewind instance onto a Kubernetes cluster, outside of an Eclipse Che workspace, which can then be connected to using the `hybrid` branch of [the VS Code extension](https://github.com/eclipse/codewind-vscode/tree/hybrid).
 
 Expands on https://github.com/eclipse/codewind/issues/576#issuecomment-535938363
 - Add secret creation instructions
@@ -20,19 +20,21 @@ kubectl create secret docker-registry codewind-registry-secret \
     -n codewind
 ```
 
+2. Download [`codewind.yaml`](https://raw.githubusercontent.com/tetchel/codewind-without-che/master/codewind.yaml).
+
 2. Edit the CHANGE ME fields in `codewind.yaml`. Some are optional, but you must edit:
-- DOCKER_REGISTRY_URL to the same username as `--docker-username` above
+- DOCKER_REGISTRY_URL to the same username as `--docker-username` above (for Dockerhub - I haven't tried other registry providers).
 - CHE_INGRESS_HOST to `codewind.<cluster IP>.nip.io`.
     - If using Docker for Desktop on Mac, see the prereqs below to determine your cluster IP.
 - codewind-ingress spec.rules.host to the same host as above.
 - codewind-performance deployment CODEWIND_INGRESS to the same host as above.
-- If you plan to use a namespace other than `codewind`, edit KUBE_NAMESPACE (and make sure you created the secret into the same namespace, above).
+- If you plan to use a namespace other than `codewind`, edit KUBE_NAMESPACE (and make sure you created the secret into that namespace, above).
 
-3. Download `codewind.yaml` and deploy Codewind
+4. Deploy Codewind
 
 `kubectl apply -f codewind.yaml -n codewind`
 
-4. Codewind is now available at the ingress URL provided above.
+5. Codewind is now available at the ingress URL provided above.
 
 `kubectl get ing -n codewind`
 
