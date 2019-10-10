@@ -1,0 +1,280 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: codewind-sa
+secrets:
+- name: codewind-registry-secret
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: codewind-pvc
+spec:
+  # CHANGE ME - User may need to specify the storage class to use.
+  storageClassName: hostpath
+  accessModes:
+    - ReadWriteOnce
+    - ReadOnlyMany
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: codewind-proxy
+  labels:
+    app: codewind-pfe
+    pfeWorkspace: remotews
+  # ownerReferences:
+  #   - apiVersion: apps/v1
+  #     blockOwnerDeletion: true
+  #     controller: true
+  #     kind: ReplicaSet
+  #     name: OWNER_REFERENCE_NAME_PLACEHOLDER
+  #     uid: OWNER_REFERENCE_UID_PLACEHOLDER
+spec:
+  ports:
+    - port: 9191
+      name: portal-http
+  selector:
+    pfeWorkspace: remotews
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: codewind
+  # # TODO - Probably need a valid UID
+  # UUID: 1234-5678
+  labels:
+    app: codewind-pfe
+    workspace: codewind
+  # ownerReferences:
+  #   - apiVersion: apps/v1
+  #     blockOwnerDeletion: true
+  #     controller: true
+  #     kind: ReplicaSet
+  #     name: OWNER_REFERENCE_NAME_PLACEHOLDER
+  #     uid: OWNER_REFERENCE_UID_PLACEHOLDER
+spec:
+  selector:
+    matchLabels:
+      app: codewind-pfe
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: codewind-pfe
+        pfeWorkspace: remotews
+      annotations:
+        productName: "codewind"
+        productID: "codewind"
+        productVersion: "0.5.0"
+
+    spec:
+      serviceAccountName: codewind-sa
+      affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: beta.kubernetes.io/arch
+                  operator: In
+                  values:
+                  - amd64
+                  - ppc64le
+      volumes:
+      - name: shared-workspace
+        persistentVolumeClaim:
+          claimName: codewind-pvc
+      - name: buildah-volume
+      - name: registry-secret
+        secret:
+          defaultMode: 0777
+          secretName: codewind-registry-secret
+      containers:
+      - name: codewind-pfe
+        # CHAMGE ME - To the image you want to use, the original value is: eclipse/codewind-pfe-amd64:latest
+        image: eclipse/codewind-pfe-amd64:latest
+        imagePullPolicy: "Always"
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: shared-workspace
+          mountPath: /codewind-workspace
+          subPath: "codewind/projects"
+        - name: buildah-volume
+          mountPath: "/var/lib/containers"
+        - name: registry-secret
+          mountPath: "/tmp/secret"
+        env:
+          - name: IN_K8
+            value: "true"
+          - name: PORTAL_HTTPS
+            value: "true"
+          # Required to start PFE with the remote-bind API's enabled.
+          - name: REMOTE_MODE
+            value: "true"
+          # CHANGE ME - Set the the kubernetes namespace you are using.
+          - name: KUBE_NAMESPACE
+            value: "codewind"
+          - name: TILLER_NAMESPACE
+            value: "codewind"
+          - name: PVC_NAME
+            value: codewind-pvc
+          - name: SERVICE_NAME
+            value: codewind-proxy
+          - name: DOCKER_REGISTRY_SECRET
+            value: "codewind-registry-secret"
+          # CHANGE ME - Since we need to use dockerhub just your docker username is enough here.
+          - name: DOCKER_REGISTRY_URL
+            value: "timetchells"
+          - name: HELM_SECRET
+            value: "codewind-helm-secret"
+          - name: SERVICE_ACCOUNT_NAME
+            value: codewind-sa
+          - name: CODEWIND_VERSION
+            value: 0.5.0
+          - name: CONTAINER_WORKSPACE_DIRECTORY
+            value: /codewind-workspace
+          # TODO - Should these be owned by ourselves?
+          - name: OWNER_REF_NAME
+            value: codewind
+          - name: OWNER_REF_UID
+            value: 1234-5678
+          - name: CODEWIND_PERFORMANCE_SERVICE
+            value: codewind-performance-proxy
+          # CHANGE ME - Use the address for your clusters ingress.
+          - name: CHE_INGRESS_HOST
+            value: codewind.10.96.75.228.nip.io
+        ports:
+        - containerPort: 9191
+        resources:
+          requests:
+            memory: 128Mi
+            cpu: 100m
+          limits:
+            memory: 2Gi
+            cpu: 500m
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: codewind-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+  # ownerReferences:
+  #   - apiVersion: apps/v1
+  #     blockOwnerDeletion: true
+  #     controller: true
+  #     kind: ReplicaSet
+  #     name: OWNER_REFERENCE_NAME_PLACEHOLDER
+  #     uid: OWNER_REFERENCE_UID_PLACEHOLDER
+spec:
+  rules:
+    # CHANGE ME - Use the address for your clusters ingress.
+  - host: codewind.10.96.75.228.nip.io
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: codewind-proxy
+          servicePort: 9191
+
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: codewind-performance-proxy
+  labels:
+    app: codewind-performance
+    performanceWorkspace: remotews
+  # ownerReferences:
+  #   - apiVersion: apps/v1
+  #     blockOwnerDeletion: true
+  #     controller: true
+  #     kind: ReplicaSet
+  #     name: OWNER_REFERENCE_NAME_PLACEHOLDER
+  #     uid: OWNER_REFERENCE_UID_PLACEHOLDER
+spec:
+  ports:
+    - port: 9095
+      name: performance-http
+  selector:
+    performanceWorkspace: remotews
+
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: codewind-performance
+  labels:
+    app: codewind-performance
+    workspace: remotews
+  # ownerReferences:
+  #   - apiVersion: apps/v1
+  #     blockOwnerDeletion: true
+  #     controller: true
+  #     kind: ReplicaSet
+  #     name: OWNER_REFERENCE_NAME_PLACEHOLDER
+  #     uid: OWNER_REFERENCE_UID_PLACEHOLDER
+spec:
+  selector:
+    matchLabels:
+      app: codewind-performance
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: codewind-performance
+        performanceWorkspace: remotews
+      annotations:
+        productName: "codewind-performance"
+        productID: "codewind-performance"
+    spec:
+      serviceAccountName: codewind-sa
+      affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: beta.kubernetes.io/arch
+                  operator: In
+                  values:
+                  - amd64
+                  - ppc64le
+      containers:
+      - name: codewind-performance
+        image: eclipse/codewind-performance-amd64:latest
+        imagePullPolicy: "Always"
+        securityContext:
+          privileged: true
+        env:
+          - name: IN_K8
+            value: "true"
+          - name: PORTAL_HTTPS
+            value: "true"
+          - name: CODEWIND_INGRESS
+            value: codewind.10.96.75.228.nip.io
+        ports:
+        - containerPort: 9095
+        resources:
+          requests:
+            memory: 128Mi
+            cpu: 100m
+          limits:
+            memory: 2Gi
+            cpu: 500m
