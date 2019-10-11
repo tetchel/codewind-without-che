@@ -24,7 +24,7 @@ kind: ClusterRole
 metadata:
   name: codewind-clusterrole
   labels:
-    app: codewind
+    app: codewind-pfe
 rules:
 - apiGroups: ["extensions", ""]
   resources: ["ingresses", "ingresses/status", "podsecuritypolicies"]
@@ -212,9 +212,9 @@ spec:
           secretName: codewind-registry-secret
       containers:
       - name: codewind-pfe
-        # CHANGE ME - To the image you want to use
-        #image: eclipse/codewind-pfe-amd64:latest
+        # CHAMGE ME - To the image you want to use
         image: eclipse/codewind-pfe-amd64:latest
+        #image: timetchells/codewind-pfe:hybrid
         imagePullPolicy: "Always"
         securityContext:
           privileged: true
