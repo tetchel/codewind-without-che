@@ -39,8 +39,9 @@ kubectl create secret docker-registry codewind-registry-secret \
 `kubectl get ing -n codewind`
 
 ### Prereqs for Docker for Desktop (Mac)
-- Install ingress-nginx:
+- [Install ingress-nginx](https://kubernetes.github.io/ingress-nginx/deploy/):
 ```
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/mandatory.yaml && \
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/provider/cloud-generic.yaml
 ```
 - Determine your cluster IP address and add it as an alias of localhost:
