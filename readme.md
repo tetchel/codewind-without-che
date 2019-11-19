@@ -1,5 +1,7 @@
 # Remote Codewind Without Che
 
+# These instructions are outdated - Please use [cwctl install remote](https://github.com/eclipse/codewind-installer/)
+
 This repository provides directions for Codewind developers to deploy a working Codewind instance onto a Kubernetes cluster, outside of an Eclipse Che workspace, which can then be connected to using the `hybrid` branch of [the VS Code extension](https://github.com/eclipse/codewind-vscode/tree/hybrid).
 
 Expands on https://github.com/eclipse/codewind/issues/576#issuecomment-535938363
